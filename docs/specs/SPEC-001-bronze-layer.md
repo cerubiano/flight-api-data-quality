@@ -7,7 +7,7 @@ No transformations. No modifications.
 ## Acceptance Criteria
 
 **Given:** A flight search request YUL→LAX 2026-04-15 1 adult economy
-**When:** Amadeus and Duffel APIs are called
+**When:** The ingestion service calls the configured flight providers (e.g., Amadeus, Duffel).
 **Then:**
 - Raw JSON from Amadeus is saved to `/data/bronze/amadeus/`
 - Raw JSON from Duffel is saved to `/data/bronze/duffel/`
