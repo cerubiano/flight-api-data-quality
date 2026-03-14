@@ -1,69 +1,150 @@
-# SPEC-003: Gold Layer — Data Quality Validation
+# SPEC-003: Gold Layer — Validation & Quality Scoring
 
-## Overview
-Apply quality rules field by field to normalized Silver data.
-Generate a quality score per field, per airline, and per source.
+## 1. Objective
 
-## Quality Rules
+Define the business rules and technical acceptance criteria to score 
+the quality of a normalized flight offer. The output is a weighted 
+Quality Score that enables comparison between providers and automated 
+filtering of unreliable data.
 
-### Price Rules
-| Rule ID | Field | Condition | Error Code |
+---
+
+## 2. Scoring Logic
+
+The score is a decimal value between 0.0 and 1.0.
+
+Every record starts with a perfect score of 1.0. Cumulative penalties 
+are applied based on the severity of each failed rule.
+
+### 2.1 Severity Matrix
+
+| Dimension | Validation Rule | Severity | Penalty |
 |---|---|---|---|
-| PR-001 | `total_amount` | > 0 | PRICE_ZERO |
-| PR-002 | `currency` | Valid ISO 4217 code | CURRENCY_INVALID |
-| PR-003 | `total_amount` | = `base_amount` + `tax_amount` | PRICE_MISMATCH |
+| Completeness | `total_amount` is null or <= 0 | Blocking | -1.0 |
+| Completeness | `flight_number` or `carrier_code` is null | Blocking | -1.0 |
+| Consistency | `base_amount` + `tax_amount` != `total_amount` | Critical | -0.5 |
+| Validity | `arrival_at` <= `departure_at` | Critical | -0.5 |
+| Completeness | `fare_basis` or `fare_brand` is null | Medium | -0.2 |
+| Completeness | `checked_bags` or `carry_on_bags` is null | Medium | -0.2 |
+| Validity | `origin_iata` or `destination_iata` != 3 characters | High | -0.4 |
+| Conformity | `carrier_code` not in IATA airline registry | High | -0.4 |
+| Conformity | `origin_iata` not in IATA airport registry | High | -0.4 |
+| Conformity | `destination_iata` not in IATA airport registry | High | -0.4 |
 
-### Schedule Rules
-| Rule ID | Field | Condition | Error Code |
-|---|---|---|---|
-| SC-001 | `carrier_code` | Exactly 2 characters | CARRIER_INVALID |
-| SC-002 | `departure_at` | Is future datetime | DEPARTURE_PAST |
-| SC-003 | `arrival_at` | > `departure_at` | ARRIVAL_BEFORE_DEPARTURE |
-| SC-004 | `origin_iata` | Exactly 3 characters | ORIGIN_INVALID |
-| SC-005 | `destination_iata` | Exactly 3 characters | DESTINATION_INVALID |
+### 2.2 Score Interpretation
 
-### Baggage Rules
-| Rule ID | Field | Condition | Error Code |
-|---|---|---|---|
-| BG-001 | `checked_bags` | Not null | CHECKED_BAGS_NULL |
-| BG-002 | `carry_on_bags` | Not null | CARRY_ON_NULL |
-| BG-003 | `checked_bags` | >= 0 | CHECKED_BAGS_NEGATIVE |
+| Score | Status | Meaning |
+|---|---|---|
+| 1.0 | ✅ Perfect | All rules passed |
+| 0.8 - 0.9 | ✅ Acceptable | Minor issues — safe for production |
+| 0.5 - 0.7 | ⚠️ Review | Significant issues — requires QA review |
+| < 0.5 | ❌ Blocked | Critical failures — not safe for production |
 
-### Conditions Rules
-| Rule ID | Field | Condition | Error Code |
-|---|---|---|---|
-| CD-001 | `refund_allowed` | Not null | REFUND_POLICY_MISSING |
-| CD-002 | `change_allowed` | Not null | CHANGE_POLICY_MISSING |
+---
 
-## Quality Score Calculation
+## 3. Acceptance Criteria (BDD — Gherkin Format)
+
+These scenarios must be covered by tests in 
+`tests/test_flight_scoring_service.py`.
+
+---
+
+**Scenario 1: Blocking — Null Price**
+```gherkin
+Given a normalized flight offer from the Silver layer
+When the total_amount field is null
+Then is_valid_flight must be False
+And dq_score must be 0.0
+And failed_rules must include "PRICE_NULL"
 ```
-field_score = passed_rules / total_rules * 100
-source_score = passed_fields / total_fields * 100
+
+---
+
+**Scenario 2: Critical — Price Inconsistency**
+```gherkin
+Given a normalized flight offer from the Silver layer
+When base_amount is 200.00
+And tax_amount is 50.00
+And total_amount reported by the API is 300.00
+Then is_price_consistent must be False
+And dq_score must be 0.5
+And failed_rules must include "PRICE_MISMATCH"
 ```
 
-## Output per Source
+---
+
+**Scenario 3: Medium — Incomplete Flight Attributes**
+```gherkin
+Given a normalized flight offer with all blocking fields present
+When fare_basis is null
+And checked_bags is null
+Then dq_score must be 0.6 (1.0 - 0.2 - 0.2)
+And failed_rules must include "FARE_BASIS_NULL"
+And failed_rules must include "CHECKED_BAGS_NULL"
+```
+
+---
+
+**Scenario 4: Perfect Score**
+```gherkin
+Given a normalized flight offer from the Silver layer
+When all fields are present, valid, and consistent
+Then dq_score must be 1.0
+And is_valid_flight must be True
+And failed_rules must be empty
+```
+
+---
+
+**Scenario 5: Conformity — Invalid IATA Code**
+```gherkin
+Given a normalized flight offer from the Silver layer
+When origin_iata is "YUUL" (4 characters instead of 3)
+Then dq_score must be 0.6 (1.0 - 0.4)
+And failed_rules must include "ORIGIN_INVALID"
+```
+
+---
+
+## 4. Output Structure — Gold Layer
+
+The scoring service extends the Silver model by adding a 
+`quality_metadata` object:
 ```json
 {
   "source": "amadeus",
   "carrier_code": "AC",
-  "validation_timestamp": "2026-03-10T15:54:10Z",
-  "scores": {
-    "price": 100,
-    "schedule": 100,
-    "baggage": 50,
-    "conditions": 0,
-    "overall": 75
-  },
-  "errors": [
-    {"rule_id": "BG-001", "field": "checked_bags", "error_code": "CHECKED_BAGS_NULL"},
-    {"rule_id": "CD-001", "field": "refund_allowed", "error_code": "REFUND_POLICY_MISSING"},
-    {"rule_id": "CD-002", "field": "change_allowed", "error_code": "CHANGE_POLICY_MISSING"}
-  ]
+  "flight_number": "775",
+  "origin_iata": "YUL",
+  "destination_iata": "LAX",
+  "departure_at": "2026-04-15T08:35:00",
+  "total_amount": 178.47,
+  "currency": "EUR",
+  "checked_bags": 0,
+  "carry_on_bags": 0,
+  "fare_basis": "GNA4A2BA",
+  "refund_allowed": null,
+  "change_allowed": null,
+  "quality_metadata": {
+    "dq_score": 0.6,
+    "is_valid_flight": false,
+    "failed_rules": [
+      "REFUND_POLICY_MISSING",
+      "CHANGE_POLICY_MISSING"
+    ],
+    "processed_at": "2026-03-10T15:54:10Z"
+  }
 }
 ```
 
-## Acceptance Criteria
-- Score calculated per field group and overall
-- Every failed rule logged with rule_id and error_code
-- Output saved to MySQL table `dq_results`
-- Output saved as parquet to `/data/gold/`
+## 5. Acceptance Criteria
+
+- Score calculated as decimal between 0.0 and 1.0
+- Penalties applied cumulatively — minimum score is 0.0
+- `is_valid_flight` is False when `dq_score` < 0.5
+- Every failed rule logged in `failed_rules` list
+- `quality_metadata` object added to every Silver record
+- Output saved as parquet to `data/gold/`
+- Output synced to `s3://flight-dq/gold/`
+- Validation results persisted to PostgreSQL table `dq_results`
+- All 5 BDD scenarios covered by automated tests
