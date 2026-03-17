@@ -1,0 +1,938 @@
+{
+  "info": {
+    "_postman_id": "f2c0fcbc-abaf-454e-ac55-71d4c6510175",
+    "name": "Flight API Data Quality Platform",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json",
+    "_exporter_id": "44218656"
+  },
+  "item": [
+    {
+      "name": "Amadeus",
+      "item": [
+        {
+          "name": "Test Scenarios",
+          "item": [
+            {
+              "name": "Happy Path — Valid Search",
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "exec": [
+                      "// Test 1 — Validate response status",
+                      "pm.test(\"Status code is 200\", function () {",
+                      "    pm.response.to.have.status(200);",
+                      "});",
+                      "",
+                      "// Test 2 — Validate response has flight offers",
+                      "pm.test(\"Response contains flight offers\", function () {",
+                      "    const response = pm.response.json();",
+                      "    pm.expect(response.data).to.be.an('array');",
+                      "    pm.expect(response.data.length).to.be.above(0);",
+                      "});",
+                      "",
+                      "// Test 3 — Validate price fields are present",
+                      "pm.test(\"Price fields are present\", function () {",
+                      "    const response = pm.response.json();",
+                      "    const offer = response.data[0];",
+                      "    pm.expect(offer.price.grandTotal).to.exist;",
+                      "    pm.expect(offer.price.base).to.exist;",
+                      "    pm.expect(offer.price.currency).to.exist;",
+                      "});",
+                      "",
+                      "// Test 4 — Validate schedule fields are present",
+                      "pm.test(\"Schedule fields are present\", function () {",
+                      "    const response = pm.response.json();",
+                      "    const segment = response.data[0].itineraries[0].segments[0];",
+                      "    pm.expect(segment.departure.iataCode).to.exist;",
+                      "    pm.expect(segment.arrival.iataCode).to.exist;",
+                      "    pm.expect(segment.departure.at).to.exist;",
+                      "    pm.expect(segment.arrival.at).to.exist;",
+                      "});",
+                      "",
+                      "// Test 5 — Validate baggage fields are present",
+                      "pm.test(\"Baggage fields are present\", function () {",
+                      "    const response = pm.response.json();",
+                      "    const fareDetails = response.data[0].travelerPricings[0].fareDetailsBySegment[0];",
+                      "    pm.expect(fareDetails.includedCheckedBags).to.exist;",
+                      "});"
+                    ],
+                    "type": "text/javascript",
+                    "packages": {},
+                    "requests": {}
+                  }
+                }
+              ],
+              "request": {
+                "auth": {
+                  "type": "bearer",
+                  "bearer": [
+                    {
+                      "key": "token",
+                      "value": "{{amadeus_token}}",
+                      "type": "string"
+                    }
+                  ]
+                },
+                "method": "GET",
+                "header": [],
+                "url": {
+                  "raw": "https://test.api.amadeus.com/v2/shopping/flight-offers?originLocationCode=YUL&destinationLocationCode=LAX&departureDate=2026-04-15&adults=1&max=5",
+                  "protocol": "https",
+                  "host": [
+                    "test",
+                    "api",
+                    "amadeus",
+                    "com"
+                  ],
+                  "path": [
+                    "v2",
+                    "shopping",
+                    "flight-offers"
+                  ],
+                  "query": [
+                    {
+                      "key": "originLocationCode",
+                      "value": "YUL"
+                    },
+                    {
+                      "key": "destinationLocationCode",
+                      "value": "LAX"
+                    },
+                    {
+                      "key": "departureDate",
+                      "value": "2026-04-15"
+                    },
+                    {
+                      "key": "adults",
+                      "value": "1"
+                    },
+                    {
+                      "key": "max",
+                      "value": "5"
+                    }
+                  ]
+                },
+                "description": "Happy path scenario - valid flight search request.\n\nExpected: 200 OK with flight offers.\n\nValidate that API returns complete and well-structure data.\n\nMaps to SPEC-003 - all quality dimensions must pass."
+              },
+              "response": []
+            },
+            {
+              "name": "Edge Case — Missing Destination",
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "exec": [
+                      "// Test 1 — Validate API rejects missing destination",
+                      "pm.test(\"Status code is 400\", function () {",
+                      "    pm.response.to.have.status(400);",
+                      "});",
+                      "",
+                      "// Test 2 — Validate error response is descriptive",
+                      "pm.test(\"Error response contains detail\", function () {",
+                      "    const response = pm.response.json();",
+                      "    pm.expect(response.errors).to.be.an('array');",
+                      "    pm.expect(response.errors.length).to.be.above(0);",
+                      "});",
+                      "",
+                      "// Test 3 — Validate no flight offers returned",
+                      "pm.test(\"No flight offers returned\", function () {",
+                      "    const response = pm.response.json();",
+                      "    pm.expect(response.data).to.not.exist;",
+                      "});"
+                    ],
+                    "type": "text/javascript",
+                    "packages": {},
+                    "requests": {}
+                  }
+                }
+              ],
+              "request": {
+                "auth": {
+                  "type": "bearer",
+                  "bearer": [
+                    {
+                      "key": "token",
+                      "value": "{{amadeus_token}}",
+                      "type": "string"
+                    }
+                  ]
+                },
+                "method": "GET",
+                "header": [],
+                "url": {
+                  "raw": "https://test.api.amadeus.com/v2/shopping/flight-offers?originLocationCode=YUL&departureDate=2026-04-15&adults=1&max=5",
+                  "protocol": "https",
+                  "host": [
+                    "test",
+                    "api",
+                    "amadeus",
+                    "com"
+                  ],
+                  "path": [
+                    "v2",
+                    "shopping",
+                    "flight-offers"
+                  ],
+                  "query": [
+                    {
+                      "key": "originLocationCode",
+                      "value": "YUL"
+                    },
+                    {
+                      "key": "departureDate",
+                      "value": "2026-04-15"
+                    },
+                    {
+                      "key": "adults",
+                      "value": "1"
+                    },
+                    {
+                      "key": "max",
+                      "value": "5"
+                    }
+                  ]
+                },
+                "description": "Edge case — missing destination parameter.  \nExpected: 400 Bad Request.  \nValidates API rejects requests with missing required parameters.  \nMaps to SPEC-003 rule CM-001: all required fields must be present."
+              },
+              "response": []
+            },
+            {
+              "name": "Edge Case — Invalid IATA",
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "exec": [
+                      "// Test 1 — Validate API rejects invalid IATA code",
+                      "pm.test(\"Status code is 400\", function () {",
+                      "    pm.response.to.have.status(400);",
+                      "});",
+                      "",
+                      "// Test 2 — Validate error response is descriptive",
+                      "pm.test(\"Error response contains detail\", function () {",
+                      "    const response = pm.response.json();",
+                      "    pm.expect(response.errors).to.be.an('array');",
+                      "    pm.expect(response.errors.length).to.be.above(0);",
+                      "});",
+                      "",
+                      "// Test 3 — Validate no flight offers returned",
+                      "pm.test(\"No flight offers returned\", function () {",
+                      "    const response = pm.response.json();",
+                      "    pm.expect(response.data).to.not.exist;",
+                      "});"
+                    ],
+                    "type": "text/javascript",
+                    "packages": {},
+                    "requests": {}
+                  }
+                }
+              ],
+              "request": {
+                "auth": {
+                  "type": "bearer",
+                  "bearer": [
+                    {
+                      "key": "token",
+                      "value": "{{amadeus_token}}",
+                      "type": "string"
+                    }
+                  ]
+                },
+                "method": "GET",
+                "header": [],
+                "url": {
+                  "raw": "https://test.api.amadeus.com/v2/shopping/flight-offers?originLocationCode=YUUL&destinationLocationCode=LAX&departureDate=2026-04-15&adults=1&max=5",
+                  "protocol": "https",
+                  "host": [
+                    "test",
+                    "api",
+                    "amadeus",
+                    "com"
+                  ],
+                  "path": [
+                    "v2",
+                    "shopping",
+                    "flight-offers"
+                  ],
+                  "query": [
+                    {
+                      "key": "originLocationCode",
+                      "value": "YUUL"
+                    },
+                    {
+                      "key": "destinationLocationCode",
+                      "value": "LAX"
+                    },
+                    {
+                      "key": "departureDate",
+                      "value": "2026-04-15"
+                    },
+                    {
+                      "key": "adults",
+                      "value": "1"
+                    },
+                    {
+                      "key": "max",
+                      "value": "5"
+                    }
+                  ]
+                },
+                "description": "Edge case — invalid IATA code (4 characters instead of 3).  \nExpected: 400 Bad Request with descriptive error.  \nValidates API error handling for malformed input.  \nMaps to SPEC-003 rule VL-002: origin_iata must be exactly 3 characters."
+              },
+              "response": []
+            },
+            {
+              "name": "Edge Case — Past Date",
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "exec": [
+                      "// Test 1 — Validate API rejects past date",
+                      "pm.test(\"Status code is 400\", function () {",
+                      "    pm.response.to.have.status(400);",
+                      "});",
+                      "",
+                      "// Test 2 — Validate error response is descriptive",
+                      "pm.test(\"Error response contains detail\", function () {",
+                      "    const response = pm.response.json();",
+                      "    pm.expect(response.errors).to.be.an('array');",
+                      "    pm.expect(response.errors.length).to.be.above(0);",
+                      "});",
+                      "",
+                      "// Test 3 — Validate no flight offers returned",
+                      "pm.test(\"No flight offers returned\", function () {",
+                      "    const response = pm.response.json();",
+                      "    pm.expect(response.data).to.not.exist;",
+                      "});"
+                    ],
+                    "type": "text/javascript",
+                    "packages": {},
+                    "requests": {}
+                  }
+                }
+              ],
+              "request": {
+                "auth": {
+                  "type": "bearer",
+                  "bearer": [
+                    {
+                      "key": "token",
+                      "value": "{{amadeus_token}}",
+                      "type": "string"
+                    }
+                  ]
+                },
+                "method": "GET",
+                "header": [],
+                "url": {
+                  "raw": "https://test.api.amadeus.com/v2/shopping/flight-offers?originLocationCode=YUUL&destinationLocationCode=LAX&departureDate=2020-04-15&adults=1&max=5",
+                  "protocol": "https",
+                  "host": [
+                    "test",
+                    "api",
+                    "amadeus",
+                    "com"
+                  ],
+                  "path": [
+                    "v2",
+                    "shopping",
+                    "flight-offers"
+                  ],
+                  "query": [
+                    {
+                      "key": "originLocationCode",
+                      "value": "YUUL"
+                    },
+                    {
+                      "key": "destinationLocationCode",
+                      "value": "LAX"
+                    },
+                    {
+                      "key": "departureDate",
+                      "value": "2020-04-15"
+                    },
+                    {
+                      "key": "adults",
+                      "value": "1"
+                    },
+                    {
+                      "key": "max",
+                      "value": "5"
+                    }
+                  ]
+                },
+                "description": "Edge case — past departure date.  \nExpected: 400 Bad Request.  \nValidates API rejects dates in the past.  \nMaps to SPEC-003 rule CF-001: departure_at must be a future datetime."
+              },
+              "response": []
+            }
+          ]
+        },
+        {
+          "name": "Flight Search — YUL→LAX",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "// Parse the response as JSON",
+                  "const response = pm.response.json();",
+                  "",
+                  "// Check if flight offers were returned",
+                  "if (response.data && response.data.length > 0) {",
+                  "    ",
+                  "    // Save the first offer ID as a collection variable",
+                  "    pm.collectionVariables.set(\"amadeus_offer_id\", response.data[0].id);",
+                  "    ",
+                  "    // Log the saved offer ID to the Postman console",
+                  "    console.log(\"Offer ID saved:\", response.data[0].id);",
+                  "}"
+                ],
+                "type": "text/javascript",
+                "packages": {},
+                "requests": {}
+              }
+            }
+          ],
+          "request": {
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{amadeus_token}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "https://test.api.amadeus.com/v2/shopping/flight-offers?originLocationCode=YUL&destinationLocationCode=LAX&departureDate=2026-04-15&adults=1&max=5",
+              "protocol": "https",
+              "host": [
+                "test",
+                "api",
+                "amadeus",
+                "com"
+              ],
+              "path": [
+                "v2",
+                "shopping",
+                "flight-offers"
+              ],
+              "query": [
+                {
+                  "key": "originLocationCode",
+                  "value": "YUL"
+                },
+                {
+                  "key": "destinationLocationCode",
+                  "value": "LAX"
+                },
+                {
+                  "key": "departureDate",
+                  "value": "2026-04-15"
+                },
+                {
+                  "key": "adults",
+                  "value": "1"
+                },
+                {
+                  "key": "max",
+                  "value": "5"
+                }
+              ]
+            },
+            "description": "Searches for flight offers between YUL and LAX using Amadeus GDS.\n\nValidates:\n\n- Price: base_amount, tax_amount, total_amount, currency\n    \n- Schedule: origin, destination, departure, arrival, duration\n    \n- Baggage: checked_bags, carry_on_bags\n    \n- Fare: fare_basis, fare_brand, cabin_class\n    \n- Conditions: refund_allowed, change_allowed\n    \n\nSaves first offer_id to {{amadeus_offer_id}} for downstream requests."
+          },
+          "response": []
+        },
+        {
+          "name": "Auth — Get Token",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "const response = pm.response.json();",
+                  "pm.collectionVariables.set(\"amadeus_token\", response.access_token);"
+                ],
+                "type": "text/javascript",
+                "packages": {},
+                "requests": {}
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [],
+            "body": {
+              "mode": "urlencoded",
+              "urlencoded": [
+                {
+                  "key": "grant_type",
+                  "value": "client_credentials",
+                  "type": "text",
+                  "uuid": "a3b8dbea-c5bf-42aa-bdbe-da49d17b10e4"
+                },
+                {
+                  "key": "client_id",
+                  "value": "{{amadeus_api_key}}",
+                  "type": "text",
+                  "uuid": "7e33fb23-44c6-48ec-9ec9-04ed3522bd33"
+                },
+                {
+                  "key": "client_secret",
+                  "value": "{{amadeus_api_secret}}",
+                  "type": "text",
+                  "uuid": "99aadfaa-107a-4757-836d-03aa1b1f43bc"
+                }
+              ]
+            },
+            "url": {
+              "raw": "https://test.api.amadeus.com/v1/security/oauth2/token",
+              "protocol": "https",
+              "host": [
+                "test",
+                "api",
+                "amadeus",
+                "com"
+              ],
+              "path": [
+                "v1",
+                "security",
+                "oauth2",
+                "token"
+              ]
+            },
+            "description": "Authenticates with Amadeus API using OAuth2 client credentials flow.  \nReturns a Bearer token valid for 30 minutes.  \nRequired before any Amadeus API call."
+          },
+          "response": []
+        }
+      ]
+    },
+    {
+      "name": "Duffel",
+      "item": [
+        {
+          "name": "Tests Scenarios",
+          "item": [
+            {
+              "name": "Happy Path — Valid Search",
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "exec": [
+                      "// Test 1 — Validate response status",
+                      "pm.test(\"Status code is 201\", function () {",
+                      "    pm.response.to.have.status(201);",
+                      "});",
+                      "",
+                      "// Test 2 — Validate response has flight offers",
+                      "pm.test(\"Response contains flight offers\", function () {",
+                      "    const response = pm.response.json();",
+                      "    pm.expect(response.data.offers).to.be.an('array');",
+                      "    pm.expect(response.data.offers.length).to.be.above(0);",
+                      "});",
+                      "",
+                      "// Test 3 — Validate price fields are present",
+                      "pm.test(\"Price fields are present\", function () {",
+                      "    const response = pm.response.json();",
+                      "    const offer = response.data.offers[0];",
+                      "    pm.expect(offer.total_amount).to.exist;",
+                      "    pm.expect(offer.base_amount).to.exist;",
+                      "    pm.expect(offer.total_currency).to.exist;",
+                      "});",
+                      "",
+                      "// Test 4 — Validate schedule fields are present",
+                      "pm.test(\"Schedule fields are present\", function () {",
+                      "    const response = pm.response.json();",
+                      "    const segment = response.data.offers[0].slices[0].segments[0];",
+                      "    pm.expect(segment.origin.iata_code).to.exist;",
+                      "    pm.expect(segment.destination.iata_code).to.exist;",
+                      "    pm.expect(segment.departing_at).to.exist;",
+                      "    pm.expect(segment.arriving_at).to.exist;",
+                      "});",
+                      "",
+                      "// Test 5 — Validate baggage fields are present",
+                      "pm.test(\"Baggage fields are present\", function () {",
+                      "    const response = pm.response.json();",
+                      "    const passenger = response.data.offers[0].slices[0].segments[0].passengers[0];",
+                      "    pm.expect(passenger.baggages).to.be.an('array');",
+                      "});"
+                    ],
+                    "type": "text/javascript",
+                    "packages": {},
+                    "requests": {}
+                  }
+                }
+              ],
+              "request": {
+                "method": "POST",
+                "header": [
+                  {
+                    "key": "Authorization",
+                    "value": "Bearer {{duffel_token}}",
+                    "type": "text"
+                  },
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json",
+                    "type": "text"
+                  },
+                  {
+                    "key": "Duffel-Version",
+                    "value": "v2",
+                    "type": "text"
+                  }
+                ],
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\n    \"data\": {\n        \"slices\": [\n            {\n                \"origin\": \"YUL\",\n                \"destination\": \"LAX\",\n                \"departure_date\": \"2026-04-15\"\n            }\n        ],\n        \"passengers\": [\n            {\n                \"type\": \"adult\"\n            }\n        ],\n        \"cabin_class\": \"economy\"\n    }\n}",
+                  "options": {
+                    "raw": {
+                      "language": "json"
+                    }
+                  }
+                },
+                "url": {
+                  "raw": "https://api.duffel.com/air/offer_requests",
+                  "protocol": "https",
+                  "host": [
+                    "api",
+                    "duffel",
+                    "com"
+                  ],
+                  "path": [
+                    "air",
+                    "offer_requests"
+                  ]
+                },
+                "description": "Happy path scenario — valid flight search request.  \nExpected: 201 OK with flight offers.  \nValidates that Duffel NDC returns complete and well-structured data.  \nMaps to SPEC-003 — all quality dimensions must pass."
+              },
+              "response": []
+            },
+            {
+              "name": "Edge Case — Invalid IATA",
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "exec": [
+                      "// Test 1 — Validate API rejects invalid IATA code",
+                      "pm.test(\"Status code is 4xx\", function () {",
+                      "    pm.expect(pm.response.code).to.be.within(400, 499);",
+                      "});",
+                      "",
+                      "// Test 2 — Validate error response is descriptive",
+                      "pm.test(\"Error response contains detail\", function () {",
+                      "    const response = pm.response.json();",
+                      "    pm.expect(response.errors).to.be.an('array');",
+                      "    pm.expect(response.errors.length).to.be.above(0);",
+                      "});",
+                      "",
+                      "// Test 3 — Validate no flight offers returned",
+                      "pm.test(\"No flight offers returned\", function () {",
+                      "    const response = pm.response.json();",
+                      "    pm.expect(response.data).to.not.exist;",
+                      "});"
+                    ],
+                    "type": "text/javascript",
+                    "packages": {},
+                    "requests": {}
+                  }
+                }
+              ],
+              "request": {
+                "method": "POST",
+                "header": [
+                  {
+                    "key": "Authorization",
+                    "value": "Bearer {{duffel_token}}",
+                    "type": "text"
+                  },
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json",
+                    "type": "text"
+                  },
+                  {
+                    "key": "Duffel-Version",
+                    "value": "v2",
+                    "type": "text"
+                  }
+                ],
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\n    \"data\": {\n        \"slices\": [\n            {\n                \"origin\": \"YUUL\",\n                \"destination\": \"LAX\",\n                \"departure_date\": \"2026-04-15\"\n            }\n        ],\n        \"passengers\": [\n            {\n                \"type\": \"adult\"\n            }\n        ],\n        \"cabin_class\": \"economy\"\n    }\n}",
+                  "options": {
+                    "raw": {
+                      "language": "json"
+                    }
+                  }
+                },
+                "url": {
+                  "raw": "https://api.duffel.com/air/offer_requests",
+                  "protocol": "https",
+                  "host": [
+                    "api",
+                    "duffel",
+                    "com"
+                  ],
+                  "path": [
+                    "air",
+                    "offer_requests"
+                  ]
+                },
+                "description": "Edge case — invalid IATA code (4 characters instead of 3).  \nExpected: 422 Unprocessable Entity with descriptive error.  \nValidates API error handling for malformed input.  \nMaps to SPEC-003 rule VL-002: origin_iata must be exactly 3 characters."
+              },
+              "response": []
+            },
+            {
+              "name": "Edge Case — Missing Destination",
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "exec": [
+                      "// Test 1 — Validate API rejects missing destination",
+                      "pm.test(\"Status code is 4xx\", function () {",
+                      "    pm.expect(pm.response.code).to.be.within(400, 499);",
+                      "});",
+                      "",
+                      "// Test 2 — Validate error response is descriptive",
+                      "pm.test(\"Error response contains detail\", function () {",
+                      "    const response = pm.response.json();",
+                      "    pm.expect(response.errors).to.be.an('array');",
+                      "    pm.expect(response.errors.length).to.be.above(0);",
+                      "});",
+                      "",
+                      "// Test 3 — Validate no flight offers returned",
+                      "pm.test(\"No flight offers returned\", function () {",
+                      "    const response = pm.response.json();",
+                      "    pm.expect(response.data).to.not.exist;",
+                      "});"
+                    ],
+                    "type": "text/javascript",
+                    "packages": {},
+                    "requests": {}
+                  }
+                }
+              ],
+              "request": {
+                "method": "POST",
+                "header": [
+                  {
+                    "key": "Authorization",
+                    "value": "Bearer {{duffel_token}}",
+                    "type": "text"
+                  },
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json",
+                    "type": "text"
+                  },
+                  {
+                    "key": "Duffel-Version",
+                    "value": "v2",
+                    "type": "text"
+                  }
+                ],
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\n    \"data\": {\n        \"slices\": [\n            {\n                \"origin\": \"YUUL\",\n                \"destination\": \"LAX\"\n            }\n        ],\n        \"passengers\": [\n            {\n                \"type\": \"adult\"\n            }\n        ],\n        \"cabin_class\": \"economy\"\n    }\n}",
+                  "options": {
+                    "raw": {
+                      "language": "json"
+                    }
+                  }
+                },
+                "url": {
+                  "raw": "https://api.duffel.com/air/offer_requests",
+                  "protocol": "https",
+                  "host": [
+                    "api",
+                    "duffel",
+                    "com"
+                  ],
+                  "path": [
+                    "air",
+                    "offer_requests"
+                  ]
+                },
+                "description": "Edge case — missing destination parameter.  \nExpected: 4xx error response.  \nValidates API rejects requests with missing required parameters.  \nMaps to SPEC-003 rule CM-001: all required fields must be present."
+              },
+              "response": []
+            },
+            {
+              "name": "Edge Case — Past Date",
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "exec": [
+                      "// Test 1 — Validate API rejects past date",
+                      "pm.test(\"Status code is 4xx\", function () {",
+                      "    pm.expect(pm.response.code).to.be.within(400, 499);",
+                      "});",
+                      "",
+                      "// Test 2 — Validate error response is descriptive",
+                      "pm.test(\"Error response contains detail\", function () {",
+                      "    const response = pm.response.json();",
+                      "    pm.expect(response.errors).to.be.an('array');",
+                      "    pm.expect(response.errors.length).to.be.above(0);",
+                      "});",
+                      "",
+                      "// Test 3 — Validate no flight offers returned",
+                      "pm.test(\"No flight offers returned\", function () {",
+                      "    const response = pm.response.json();",
+                      "    pm.expect(response.data).to.not.exist;",
+                      "});"
+                    ],
+                    "type": "text/javascript",
+                    "packages": {},
+                    "requests": {}
+                  }
+                }
+              ],
+              "request": {
+                "method": "POST",
+                "header": [
+                  {
+                    "key": "Authorization",
+                    "value": "Bearer {{duffel_token}}",
+                    "type": "text"
+                  },
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json",
+                    "type": "text"
+                  },
+                  {
+                    "key": "Duffel-Version",
+                    "value": "v2",
+                    "type": "text"
+                  }
+                ],
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\n    \"data\": {\n        \"slices\": [\n            {\n                \"origin\": \"YUUL\",\n                \"destination\": \"LAX\",\n                \"departure_date\": \"2020-04-15\"\n            }\n        ],\n        \"passengers\": [\n            {\n                \"type\": \"adult\"\n            }\n        ],\n        \"cabin_class\": \"economy\"\n    }\n}",
+                  "options": {
+                    "raw": {
+                      "language": "json"
+                    }
+                  }
+                },
+                "url": {
+                  "raw": "https://api.duffel.com/air/offer_requests",
+                  "protocol": "https",
+                  "host": [
+                    "api",
+                    "duffel",
+                    "com"
+                  ],
+                  "path": [
+                    "air",
+                    "offer_requests"
+                  ]
+                },
+                "description": "Edge case — past departure date.  \nExpected: 4xx error response.  \nValidates API rejects dates in the past.  \nMaps to SPEC-003 rule CF-001: departure_at must be a future datetime."
+              },
+              "response": []
+            }
+          ]
+        },
+        {
+          "name": "Flight Search — YUL→LAX",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "// Parse the response as JSON",
+                  "const response = pm.response.json();",
+                  "",
+                  "// Check if flight offers were returned",
+                  "if (response.data && response.data.offers && response.data.offers.length > 0) {",
+                  "    ",
+                  "    // Save the first offer ID as a collection variable",
+                  "    pm.collectionVariables.set(\"duffel_offer_id\", response.data.offers[0].id);",
+                  "    ",
+                  "    // Log the saved offer ID to the Postman console",
+                  "    console.log(\"Duffel Offer ID saved:\", response.data.offers[0].id);",
+                  "}",
+                  ""
+                ],
+                "type": "text/javascript",
+                "packages": {},
+                "requests": {}
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{duffel_token}}",
+                "type": "text"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json",
+                "type": "text"
+              },
+              {
+                "key": "Duffel-Version",
+                "value": "v2",
+                "type": "text"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n    \"data\": {\n        \"slices\": [\n            {\n                \"origin\": \"YUL\",\n                \"destination\": \"LAX\",\n                \"departure_date\": \"2026-04-15\"\n            }\n        ],\n        \"passengers\": [\n            {\n                \"type\": \"adult\"\n            }\n        ],\n        \"cabin_class\": \"economy\"\n    }\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": {
+              "raw": "https://api.duffel.com/air/offer_requests",
+              "protocol": "https",
+              "host": [
+                "api",
+                "duffel",
+                "com"
+              ],
+              "path": [
+                "air",
+                "offer_requests"
+              ]
+            },
+            "description": "Searches for flight offers between YUL and LAX using Duffel NDC aggregator.  \n  \nValidates:  \n\\- Price: base_amount, tax_amount, total_amount, currency  \n\\- Schedule: origin, destination, departure, arrival, duration  \n\\- Baggage: checked_bags, carry_on_bags  \n\\- Fare: fare_basis, fare_brand, cabin_class  \n\\- Conditions: refund_allowed, change_allowed  \n  \nSaves first offer_id to {{duffel_offer_id}} for downstream requests."
+          },
+          "response": []
+        }
+      ]
+    }
+  ],
+  "variable": [
+    {
+      "key": "amadeus_token",
+      "value": ""
+    },
+    {
+      "key": "amadeus_offer_id",
+      "value": ""
+    },
+    {
+      "key": "duffel_offer_id",
+      "value": ""
+    }
+  ]
+}

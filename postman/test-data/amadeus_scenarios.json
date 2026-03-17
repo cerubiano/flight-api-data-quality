@@ -1,0 +1,42 @@
+[
+    {
+        "scenario": "Happy Path — Valid Search",
+        "origin": "YUL",
+        "destination": "LAX",
+        "departure_date": "2026-04-15",
+        "adults": "1",
+        "max": "3",
+        "expected_status": 200,
+        "expected_offers": true
+    },
+    {
+        "scenario": "Edge Case — Invalid IATA Origin",
+        "origin": "YUUL",
+        "destination": "LAX",
+        "departure_date": "2026-04-15",
+        "adults": "1",
+        "max": "3",
+        "expected_status": 400,
+        "expected_offers": false
+    },
+    {
+        "scenario": "Edge Case — Past Date",
+        "origin": "YUL",
+        "destination": "LAX",
+        "departure_date": "2020-01-01",
+        "adults": "1",
+        "max": "3",
+        "expected_status": 400,
+        "expected_offers": false
+    },
+    {
+        "scenario": "Edge Case — Missing Destination",
+        "origin": "YUL",
+        "destination": "",
+        "departure_date": "2026-04-15",
+        "adults": "1",
+        "max": "3",
+        "expected_status": 400,
+        "expected_offers": false
+    }
+]
