@@ -137,6 +137,8 @@ The scoring service extends the Silver model by adding a
 }
 ```
 
+---
+
 ## 5. Acceptance Criteria
 
 - Score calculated as decimal between 0.0 and 1.0
@@ -145,6 +147,5 @@ The scoring service extends the Silver model by adding a
 - Every failed rule logged in `failed_rules` list
 - `quality_metadata` object added to every Silver record
 - Output saved as parquet to `data/gold/`
-- Output synced to `s3://flight-dq/gold/`
 - Validation results persisted to PostgreSQL table `dq_results`
 - All 5 BDD scenarios covered by automated tests

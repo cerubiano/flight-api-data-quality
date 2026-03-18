@@ -21,33 +21,30 @@ between business logic and infrastructure.
 │   │ GET /v2/shopping│     │ POST /air/offer │       │
 │   │ /flight-offers  │     │ _requests       │       │
 │   └────────┬────────┘     └────────┬────────┘       │
-└────────────┼──────────────────────-┼────────────────┘
-             │                       │
-             └──────────┬────────────┘
+└────────────┼─────────────────────── ┼───────────────┘
+             │                        │
+             └──────────┬─────────────┘
                         │
         ┌───────────────▼───────────────┐
         │          BRONZE LAYER         │
         │    Raw JSON — untouched       │
-        │          AWS S3               │
-        │ s3://flight-dq/bronze/        │
-        │ amadeus/YYYYMMDD_*.json       │
-        │ duffel/YYYYMMDD_*.json        │
+        │       Local filesystem        │
+        │ data/bronze/amadeus/          │
+        │ data/bronze/duffel/           │
         └───────────────┬───────────────┘
                         │
         ┌───────────────▼───────────────┐
         │          SILVER LAYER         │
         │  Normalized — standard schema │
-        │          AWS S3               │
-        │ s3://flight-dq/silver/        │
-        │ YYYYMMDD_*.parquet            │
+        │       Local filesystem        │
+        │ data/silver/                  │
         └───────────────┬───────────────┘
                         │
         ┌───────────────▼───────────────┐
         │           GOLD LAYER          │
         │   Validated + QA Score        │
-        │          AWS S3               │
-        │ s3://flight-dq/gold/          │
-        │ YYYYMMDD_*.parquet            │
+        │       Local filesystem        │
+        │ data/gold/                    │
         └───────────────┬───────────────┘
                         │
         ┌───────────────▼───────────────┐
@@ -77,8 +74,9 @@ between business logic and infrastructure.
 │                            flight_scoring_           │
 │                            service.py                │
 │                                                      │
-│   ports/                                             │
-│   provider_port.py         repository_port.py        │
+│   ports/                   exceptions.py             │
+│   provider_port.py                                   │
+│   repository_port.py                                 │
 └──────────────────────────────┬───────────────────────┘
                                │
 ┌──────────────────────────────▼───────────────────────┐
@@ -94,6 +92,7 @@ between business logic and infrastructure.
 
 - `provider_port.py` — contract that every flight API adapter must implement
 - `repository_port.py` — contract that every storage adapter must implement
+- `exceptions.py` — domain error contracts
 - Adding a new API source requires only a new adapter — domain is never touched
 
 ---
@@ -109,23 +108,23 @@ between business logic and infrastructure.
 
 ### 4.2 Bronze Layer
 - **Purpose:** Store raw API responses without modification
-- **Storage:** AWS S3
+- **Storage:** Local filesystem
 - **Format:** JSON
-- **Path:** `s3://flight-dq/bronze/{source}/{YYYYMMDD_HHMMSS}_{source}.json`
+- **Path:** `data/bronze/{source}/{YYYYMMDD_HHMMSS}_{source}.json`
 - **Retention:** Permanent — source of truth for all transformations
 
 ### 4.3 Silver Layer
 - **Purpose:** Normalize data from all sources to a single standard schema
-- **Storage:** AWS S3
+- **Storage:** Local filesystem
 - **Format:** Parquet (snappy compression)
-- **Path:** `s3://flight-dq/silver/{YYYYMMDD_HHMMSS}_normalized.parquet`
+- **Path:** `data/silver/{YYYYMMDD_HHMMSS}_normalized.parquet`
 - **Key transformation:** Resolve structural differences between Amadeus and Duffel
 
 ### 4.4 Gold Layer
 - **Purpose:** Apply quality rules and generate scores per dimension
-- **Storage:** AWS S3
+- **Storage:** Local filesystem
 - **Format:** Parquet (snappy compression)
-- **Path:** `s3://flight-dq/gold/{YYYYMMDD_HHMMSS}_validated.parquet`
+- **Path:** `data/gold/{YYYYMMDD_HHMMSS}_validated.parquet`
 - **Key output:** Quality score per field, per dimension, per airline, per source
 
 ### 4.5 PostgreSQL
@@ -148,12 +147,12 @@ between business logic and infrastructure.
 Step 1 — Extraction
 Input:  origin, destination, departure_date, adults
 Action: Call Amadeus and Duffel flight search endpoints
-Output: Raw JSON per source → Bronze layer
+Output: Raw JSON per source → data/bronze/{source}/
 
 Step 2 — Normalization
 Input:  Bronze JSON per source
 Action: Map each source fields to standard schema via Pydantic
-Output: Single normalized schema → Silver layer (Parquet)
+Output: Single normalized schema → data/silver/ (Parquet)
 
 Step 3 — Validation
 Input:  Silver Parquet
@@ -162,7 +161,7 @@ Action: Apply quality rules per dimension
         Validity     — IATA standards + ISO 8601 formats
         Consistency  — cross-field validation
         Conformity   — structural compliance
-Output: QA Score per field + errors → Gold layer (Parquet)
+Output: QA Score per field + errors → data/gold/ (Parquet)
 
 Step 4 — Storage
 Input:  Gold Parquet
@@ -196,6 +195,7 @@ flight-api-data-quality/
             ports/
                 provider_port.py
                 repository_port.py
+            exceptions.py
         adapters/
             providers/
                 amadeus_adapter.py
@@ -205,6 +205,7 @@ flight-api-data-quality/
                 postgres_repository.py
         main.py
     tests/
+        conftest.py
         test_flight_validation_service.py
         test_flight_scoring_service.py
         test_amadeus_adapter.py
@@ -216,6 +217,7 @@ flight-api-data-quality/
             SPEC-001-bronze-layer.md
             SPEC-002-silver-layer.md
             SPEC-003-gold-layer.md
+    postman/
     .cursor/
         rules/
     .env.example
@@ -232,8 +234,6 @@ flight-api-data-quality/
 | Language | Python | 3.12 |
 | Data processing | Pandas + PyArrow | Latest |
 | Data validation | Pydantic | v2 |
-| AWS SDK | Boto3 | Latest |
-| Cloud storage | AWS S3 | — |
 | Database | PostgreSQL | 16 |
 | DB connector | Psycopg2 | Latest |
 | Dashboard | Tableau Public | Latest |
@@ -277,12 +277,6 @@ AMADEUS_API_SECRET=
 
 # Duffel
 DUFFEL_ACCESS_TOKEN=
-
-# AWS
-AWS_ACCESS_KEY_ID=
-AWS_SECRET_ACCESS_KEY=
-AWS_REGION=ca-central-1
-S3_BUCKET_NAME=flight-dq
 
 # PostgreSQL
 DB_HOST=localhost

@@ -59,4 +59,3 @@ Resolve structural differences between Amadeus and Duffel responses.
 - Currency preserved as-is (conversion is not in scope)
 - Null fields are explicitly stored as null (not omitted)
 - Output saved as parquet to `data/silver/`
-- Output synced to `s3://flight-dq/silver/`

@@ -13,7 +13,6 @@ health and reliability of multiple flight API integrations. Inconsistent
 or poor-quality data directly impacts customer trust and revenue.
 
 Three core challenges:
-
 - **Validation:** Ensuring new API integrations meet data integrity standards before going live.
 - **Monitoring:** Continuous tracking of production API health to detect quality degradation.
 - **Visibility:** Data-driven insights for stakeholders to make informed decisions about provider prioritization.
@@ -21,7 +20,6 @@ Three core challenges:
 ---
 
 ## Architecture
-
 ```
 Amadeus GET /v2/shopping/flight-offers
 Duffel  POST /air/offer_requests
@@ -64,22 +62,18 @@ Equivalence Partitioning, and Negative Testing.
 
 ## Tech Stack
 
-
-| Component       | Technology       |
-| --------------- | ---------------- |
-| Language        | Python 3.12      |
+| Component | Technology |
+|---|---|
+| Language | Python 3.12 |
 | Data processing | Pandas + PyArrow |
-| Data validation | Pydantic v2      |
-| Cloud storage   | AWS S3           |
-| Database        | PostgreSQL 16    |
-| Dashboard       | Tableau Public   |
-| Version control | Git + GitHub     |
-
+| Data validation | Pydantic v2 |
+| Database | PostgreSQL 16 |
+| Dashboard | Tableau Public |
+| Version control | Git + GitHub |
 
 ---
 
 ## Project Structure
-
 ```
 flight-api-data-quality/
     data/
@@ -91,45 +85,43 @@ flight-api-data-quality/
             models/
             services/
             ports/
+            exceptions.py
         adapters/
             providers/
             repositories/
         main.py
     tests/
+        conftest.py
     docs/
         PRD.md
         SYSTEM_ARCHITECTURE.md
         specs/
+    postman/
 ```
 
 ---
 
 ## Documentation
 
-
-| Document                                           | Description                                      |
-| -------------------------------------------------- | ------------------------------------------------ |
-| [PRD](docs/PRD.md)                                 | Problem statement, scope, and success criteria   |
+| Document | Description |
+|---|---|
+| [PRD](docs/PRD.md) | Problem statement, scope, and success criteria |
 | [System Architecture](docs/SYSTEM_ARCHITECTURE.md) | Technical design, data flow, and data dictionary |
-| [SPEC-001](docs/specs/SPEC-001-bronze-layer.md)    | Bronze layer ingestion specification             |
-| [SPEC-002](docs/specs/SPEC-002-silver-layer.md)    | Silver layer normalization specification         |
-| [SPEC-003](docs/specs/SPEC-003-gold-layer.md)      | Gold layer validation specification              |
-
+| [SPEC-001](docs/specs/SPEC-001-bronze-layer.md) | Bronze layer ingestion specification |
+| [SPEC-002](docs/specs/SPEC-002-silver-layer.md) | Silver layer normalization specification |
+| [SPEC-003](docs/specs/SPEC-003-gold-layer.md) | Gold layer validation and quality scoring specification |
 
 ---
 
 ## How to Run
 
 ### Prerequisites
-
 - Python 3.12
 - PostgreSQL 16
-- AWS account with S3 bucket
 - Amadeus API credentials
 - Duffel API credentials
 
 ### Setup
-
 ```bash
 git clone https://github.com/cerubiano/flight-api-data-quality
 cd flight-api-data-quality
@@ -139,7 +131,6 @@ cp .env.example .env
 ```
 
 ### Run
-
 ```bash
 python src/main.py
 ```
@@ -155,4 +146,4 @@ python src/main.py
 ## Author
 
 Carlos Eduardo Rubiano Robles  
-[LinkedIn](#) · [GitHub](#)
+[LinkedIn](https://www.linkedin.com/in/cerubiano/) · [GitHub](https://github.com/cerubiano)
