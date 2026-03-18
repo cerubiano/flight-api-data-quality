@@ -1,0 +1,185 @@
+---
+description: Python coding standards, clean code and SOLID implementation rules
+globs: **/*.py
+alwaysApply: true
+---
+
+# Python Standards — Flight API Data Quality Platform
+
+## Python Version
+- Python 3.12 only
+- Use modern syntax: match/case, union types with |, f-strings always
+
+## Code Style
+
+### Naming Conventions
+- Classes: PascalCase → `FlightModel`, `AmadeusAdapter`
+- Functions/methods: snake_case → `search_flights`, `validate_fields`
+- Constants: UPPER_CASE → `MAX_RETRIES`, `DEFAULT_TIMEOUT`
+- Private methods: single underscore → `_parse_response`
+- Files: snake_case → `flight_model.py`, `amadeus_adapter.py`
+
+### Type Hints — Mandatory on Everything
+```python
+# CORRECT
+def search_flights(
+    self,
+    origin: str,
+    destination: str,
+    departure_date: str,
+    adults: int = 1
+) -> list[FlightModel]:
+
+# WRONG — never do this
+def search_flights(self, origin, destination, date):
+```
+
+### Docstrings — Google Style
+```python
+def validate(self, flights: list[FlightModel]) -> list[FlightModel]:
+    """Validates flight data against quality rules.
+
+    Args:
+        flights: List of normalized flight models from Silver layer.
+
+    Returns:
+        List of FlightModel with validation errors populated.
+
+    Raises:
+        ValidationError: If flight list is empty.
+    """
+```
+
+### No Magic Numbers
+```python
+# CORRECT
+MIN_CARRIER_CODE_LENGTH = 2
+MAX_CARRIER_CODE_LENGTH = 2
+
+if len(carrier_code) != MIN_CARRIER_CODE_LENGTH:
+
+# WRONG
+if len(carrier_code) != 2:
+```
+
+## Pydantic v2 — Mandatory for All Models
+
+### Model Definition
+```python
+from pydantic import BaseModel, Field, field_validator
+from decimal import Decimal
+
+class FlightModel(BaseModel):
+    model_config = ConfigDict(str_strip_whitespace=True)
+
+    source: str = Field(..., description="API source: amadeus or duffel")
+    carrier_code: str = Field(..., min_length=2, max_length=2)
+    total_amount: Decimal = Field(..., gt=0)
+    currency: str = Field(..., min_length=3, max_length=3)
+```
+
+### Validators
+```python
+@field_validator("departure_at")
+@classmethod
+def departure_must_be_future(cls, v: datetime) -> datetime:
+    if v < datetime.now(UTC):
+        raise ValueError("departure_at must be a future datetime")
+    return v
+```
+
+## Error Handling
+
+### Never Swallow Exceptions
+```python
+# CORRECT
+try:
+    response = self._client.get(url, params=params)
+    response.raise_for_status()
+except httpx.HTTPStatusError as e:
+    logger.error("API request failed: %s", e)
+    raise AdapterError(f"Flight search failed: {e}") from e
+
+# WRONG
+try:
+    response = self._client.get(url)
+except Exception:
+    pass
+```
+
+### Custom Exceptions
+```python
+# Define domain exceptions in domain/exceptions.py
+class DomainError(Exception): ...
+class ValidationError(DomainError): ...
+class AdapterError(Exception): ...
+class RepositoryError(Exception): ...
+```
+
+## Logging — Never Print
+```python
+import logging
+
+logger = logging.getLogger(__name__)
+
+# CORRECT
+logger.info("Processing %d flights from %s", len(flights), source)
+logger.error("Validation failed for flight %s: %s", flight_id, error)
+
+# WRONG
+print(f"Processing {len(flights)} flights")
+```
+
+## Imports — Strict Order
+```python
+# 1. Standard library
+import logging
+from datetime import datetime, UTC
+from decimal import Decimal
+from pathlib import Path
+
+# 2. Third-party
+import pandas as pd
+import psycopg2
+from pydantic import BaseModel
+
+# 3. Internal — absolute imports only
+from src.domain.models.flight_model import FlightModel
+from src.domain.ports.provider_port import FlightProviderPort
+```
+
+## Functions and Methods
+
+### Maximum 20 lines per function
+If a function exceeds 20 lines — extract into smaller functions.
+
+### Maximum 3 parameters
+If a method needs more than 3 parameters — use a dataclass or Pydantic model.
+
+### Pure functions in domain
+Domain services must be pure — same input always produces same output.
+No side effects in domain layer.
+
+## Dependencies — Injected via Constructor
+```python
+# CORRECT
+class FlightValidationService:
+    def __init__(self, rules: list[ValidationRule]) -> None:
+        self._rules = rules
+
+# WRONG
+class FlightValidationService:
+    def __init__(self) -> None:
+        self._rules = [PriceRule(), ScheduleRule()]  # hardcoded
+```
+
+## File I/O — pathlib Only
+```python
+# CORRECT
+from pathlib import Path
+bronze_path = Path("data/bronze") / source / filename
+
+# WRONG
+import os
+path = os.path.join("data", "bronze", source, filename)
+```

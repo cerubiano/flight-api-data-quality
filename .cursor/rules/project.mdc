@@ -1,0 +1,132 @@
+---
+description: Project context, architecture principles and design decisions
+globs: **/*.py
+alwaysApply: true
+---
+
+# Flight API Data Quality Platform — Project Rules
+
+## Project Context
+A batch data pipeline that ingests, normalizes, and scores the quality 
+of flight data from multiple API sources (Amadeus GDS + Duffel NDC).
+Target users: QA Analysts and Integration Engineers at travel OTAs.
+
+## Architecture: Hexagonal (Ports & Adapters) + Medallion
+
+### Layers
+- **Domain**: Pure business logic. Zero dependencies on infrastructure.
+- **Adapters**: Translate between domain and external systems.
+- **Data Layers**: Bronze (raw) → Silver (normalized) → Gold (scored).
+
+### Strict Rules
+- Domain NEVER imports from adapters or infrastructure.
+- Adapters ALWAYS implement a port interface.
+- main.py is the ONLY orchestrator — no business logic here.
+- All external I/O (APIs, files, PostgreSQL) lives in adapters ONLY.
+
+## SOLID Principles — Non-Negotiable
+
+### Single Responsibility
+- One class = one reason to change.
+- FlightValidationService validates. FlightScoringService scores.
+- Never combine validation and scoring in one class.
+
+### Open/Closed
+- Add new API source = add new adapter. Never modify existing adapters.
+- Add new quality rule = add new rule to the rules registry. Never modify the scorer.
+
+### Liskov Substitution
+- Any adapter implementing FlightProviderPort must be fully interchangeable.
+- AmadeusAdapter and DuffelAdapter must behave identically from the domain's perspective.
+
+### Interface Segregation
+- FlightProviderPort defines ONLY what providers must implement.
+- RepositoryPort defines ONLY what repositories must implement.
+- No fat interfaces.
+
+### Dependency Inversion
+- Domain depends on abstractions (ports), never on concretions (adapters).
+- Inject dependencies via constructor. Never instantiate adapters inside domain.
+
+## Design Decisions
+
+### Synchronous Execution
+The pipeline is synchronous by design. Applying YAGNI and KISS principles:
+- Two API sources in a batch context do not justify async complexity.
+- Synchronous code is easier to test, debug, and maintain.
+- The architecture is open for async if requirements change (Open/Closed).
+
+### No ORM
+Raw psycopg2 for PostgreSQL — keeps dependencies minimal and explicit.
+An ORM would add abstraction without benefit for a single-table write operation.
+
+### Pydantic v2
+Schema validation and normalization in one step.
+Pydantic v2 enforces types at runtime — no silent data corruption.
+
+### Parquet
+Columnar format — optimal for analytical queries in Tableau.
+Snappy compression — balance between speed and size.
+Local storage only — S3 is the natural next step for production scaling.
+
+### PostgreSQL Local
+Single storage layer for validation results and dashboard.
+Tableau connects directly to PostgreSQL — no intermediate layer needed.
+Production would use AWS RDS — zero schema migration cost.
+
+### No S3 in this version
+Applying YAGNI — two API sources do not justify a data lake architecture.
+Local Parquet files + PostgreSQL provide full traceability and analytical capability.
+S3 integration is documented as the production scaling path.
+
+## Storage Strategy
+
+| Layer | Format | Location | Purpose |
+|---|---|---|---|
+| Bronze | JSON | `data/bronze/{source}/` | Raw API responses — source of truth |
+| Silver | Parquet | `data/silver/` | Normalized schema — all sources combined |
+| Gold | Parquet | `data/gold/` | Validated data with QA scores |
+| Results | PostgreSQL | `flight_dq.dq_results` | Dashboard and SQL queries |
+
+## Project Structure
+```
+src/
+    domain/
+        models/
+            flight_model.py
+        services/
+            flight_validation_service.py
+            flight_scoring_service.py
+        ports/
+            provider_port.py
+            repository_port.py
+        exceptions.py
+    adapters/
+        providers/
+            amadeus_adapter.py
+            duffel_adapter.py
+        repositories/
+            file_repository.py
+            postgres_repository.py
+    main.py
+tests/
+    test_flight_validation_service.py
+    test_flight_scoring_service.py
+    test_amadeus_adapter.py
+    test_duffel_adapter.py
+```
+
+## Data Flow — Synchronous Batch
+```
+1. main.py calls AmadeusAdapter.search_flights()
+2. AmadeusAdapter returns List[FlightModel] → saved to data/bronze/amadeus/
+3. main.py calls DuffelAdapter.search_flights()
+4. DuffelAdapter returns List[FlightModel] → saved to data/bronze/duffel/
+5. main.py calls FlightValidationService.validate()
+6. FlightValidationService returns List[FlightModel] with errors
+7. main.py calls FlightScoringService.score()
+8. FlightScoringService returns List[FlightModel] with quality_metadata
+9. main.py calls FileRepository.save_silver() → data/silver/
+10. main.py calls FileRepository.save_gold() → data/gold/
+11. main.py calls PostgresRepository.save_results() → dq_results table
+```

@@ -1,0 +1,206 @@
+---
+description: Domain layer rules — flight model, validation and scoring logic
+globs: src/domain/**/*.py
+alwaysApply: false
+---
+
+# Domain Rules — Flight API Data Quality Platform
+
+## Core Principle
+The domain is the heart of the system. It knows nothing about APIs, 
+files, databases, or frameworks. It only knows about flights and 
+quality rules.
+
+## FlightModel — The Single Truth
+
+### Required Fields — Blocking if null
+```python
+source: str                    # amadeus | duffel
+carrier_code: str              # 2-char IATA
+flight_number: str             # flight identifier
+origin_iata: str               # 3-char IATA
+destination_iata: str          # 3-char IATA
+departure_at: datetime         # ISO 8601
+arrival_at: datetime           # ISO 8601
+total_amount: Decimal          # > 0
+currency: str                  # ISO 4217
+```
+
+### Optional Fields — Penalized if null
+```python
+base_amount: Decimal | None
+tax_amount: Decimal | None
+duration: str | None
+cabin_class: str | None
+fare_basis: str | None         # Medium penalty if null
+fare_brand: str | None
+checked_bags: int | None       # Medium penalty if null
+carry_on_bags: int | None      # Medium penalty if null
+refund_allowed: bool | None
+change_allowed: bool | None
+```
+
+### Quality Metadata — populated by FlightScoringService
+```python
+class QualityMetadata(BaseModel):
+    dq_score: float             # 0.0 to 1.0
+    is_valid_flight: bool       # False if dq_score < 0.5
+    failed_rules: list[str]     # list of error codes
+    processed_at: datetime      # UTC
+```
+
+## FlightValidationService
+
+### Responsibility
+Apply validation rules field by field.
+Return FlightModel with `failed_rules` populated.
+Never calculate scores — that is FlightScoringService's job.
+
+### Rule Structure
+```python
+class ValidationRule(ABC):
+    rule_id: str
+    dimension: str    # completeness | validity | consistency | conformity
+    severity: str     # blocking | critical | high | medium
+    penalty: float
+
+    @abstractmethod
+    def validate(self, flight: FlightModel) -> str | None:
+        """Returns error_code if rule fails, None if passes."""
+```
+
+### Rules Registry — Open/Closed
+```python
+VALIDATION_RULES: list[ValidationRule] = [
+    # Completeness
+    PriceNullRule(),          # CM-001 — blocking  -1.0
+    CarrierNullRule(),        # CM-002 — blocking  -1.0
+    FareBasisNullRule(),      # CM-003 — medium    -0.2
+    CheckedBagsNullRule(),    # CM-004 — medium    -0.2
+    CarryOnNullRule(),        # CM-005 — medium    -0.2
+    RefundPolicyNullRule(),   # CM-006 — medium    -0.2
+    ChangePolicyNullRule(),   # CM-007 — medium    -0.2
+
+    # Validity
+    CarrierCodeLengthRule(),  # VL-001 — high      -0.4
+    OriginIATALengthRule(),   # VL-002 — high      -0.4
+    DestIATALengthRule(),     # VL-003 — high      -0.4
+    DepartureDateFormatRule(),# VL-004 — high      -0.4
+    CurrencyFormatRule(),     # VL-005 — high      -0.4
+
+    # Consistency
+    PriceZeroRule(),          # CS-001 — blocking  -1.0
+    PriceMismatchRule(),      # CS-002 — critical  -0.5
+    ArrivalBeforeDeptRule(),  # CS-003 — critical  -0.5
+    BagsNegativeRule(),       # CS-004 — medium    -0.2
+
+    # Conformity
+    DeparturePastRule(),      # CF-001 — critical  -0.5
+]
+```
+
+### Adding a New Rule — Open/Closed in Practice
+```
+1. Create new class inheriting ValidationRule
+2. Add to VALIDATION_RULES list
+3. Never modify existing rules
+4. Never modify FlightValidationService
+```
+
+## FlightScoringService
+
+### Responsibility
+Calculate dq_score from failed_rules.
+Set is_valid_flight flag.
+Never apply rules — that is FlightValidationService's job.
+
+### Scoring Algorithm
+```python
+def score(self, flight: FlightModel) -> FlightModel:
+    score = 1.0
+    for rule_id in flight.failed_rules:
+        penalty = PENALTY_MAP[rule_id]
+        score -= penalty
+    score = max(0.0, score)  # floor at 0.0
+    
+    flight.quality_metadata = QualityMetadata(
+        dq_score=round(score, 2),
+        is_valid_flight=score >= 0.5,
+        failed_rules=flight.failed_rules,
+        processed_at=datetime.now(UTC)
+    )
+    return flight
+```
+
+## Ports — Contracts
+
+### FlightProviderPort
+```python
+class FlightProviderPort(ABC):
+    @abstractmethod
+    def search_flights(
+        self,
+        origin: str,
+        destination: str,
+        departure_date: str,
+        adults: int = 1
+    ) -> list[FlightModel]:
+        """Search flights and return normalized FlightModel list."""
+```
+
+### RepositoryPort
+```python
+class RepositoryPort(ABC):
+    @abstractmethod
+    def save_bronze(self, raw_response: dict, source: str) -> Path:
+        """Save raw API response to Bronze layer."""
+
+    @abstractmethod
+    def save_silver(self, flights: list[FlightModel]) -> Path:
+        """Save normalized flights to Silver layer as Parquet."""
+
+    @abstractmethod
+    def save_gold(self, flights: list[FlightModel]) -> Path:
+        """Save validated and scored flights to Gold layer as Parquet."""
+
+    @abstractmethod
+    def save_results(self, flights: list[FlightModel]) -> None:
+        """Persist quality scores to PostgreSQL dq_results table."""
+```
+
+## Forbidden in Domain Layer
+- No imports from `adapters/`
+- No `import requests`, `import httpx`, `import boto3`, `import psycopg2`
+- No file I/O operations
+- No environment variable access
+- No logging configuration — only `logger = logging.getLogger(__name__)`
+- No hardcoded URLs, credentials, or connection strings
+
+## Exceptions — Domain Contracts
+
+### Definition
+```python
+# src/domain/exceptions.py
+
+class DomainError(Exception):
+    """Base exception for all domain errors."""
+
+class ValidationError(DomainError):
+    """Raised when flight validation fails critically."""
+
+class ScoringError(DomainError):
+    """Raised when scoring cannot be completed."""
+
+class AdapterError(Exception):
+    """Raised when an external API call fails."""
+
+class RepositoryError(Exception):
+    """Raised when a storage operation fails."""
+```
+
+### Rules
+- DomainError is the base for all domain exceptions
+- AdapterError and RepositoryError are NOT domain errors — they are infrastructure errors
+- Domain services raise DomainError — never AdapterError or RepositoryError
+- Adapters raise AdapterError — never DomainError
+- Repositories raise RepositoryError — never DomainError

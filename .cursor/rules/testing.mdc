@@ -1,0 +1,210 @@
+---
+description: Testing standards, pytest configuration and ISTQB techniques
+globs: tests/**/*.py
+alwaysApply: false
+---
+
+# Testing Standards — Flight API Data Quality Platform
+
+## Testing Philosophy — Shift-Left
+Quality is defined before code is written.
+Every SPEC-003 BDD scenario maps to exactly one test.
+Tests are the executable specification of the system.
+
+## Testing Stack
+- **pytest** — test runner
+- **pytest-cov** — coverage reporting
+- **pydantic** — model validation in tests
+- No mocking frameworks — use simple fakes and fixtures
+
+## Test Structure
+
+### File Naming
+```
+tests/
+    test_flight_validation_service.py  ← domain tests
+    test_flight_scoring_service.py     ← domain tests
+    test_amadeus_adapter.py            ← adapter tests
+    test_duffel_adapter.py             ← adapter tests
+    conftest.py                        ← shared fixtures
+```
+
+### Test Naming Convention
+```python
+# Pattern: test_{what}_{condition}_{expected_result}
+
+def test_score_price_null_returns_zero():
+def test_score_price_mismatch_returns_0_5():
+def test_validate_invalid_iata_returns_error_code():
+def test_validate_all_fields_present_returns_no_errors():
+```
+
+### Test Structure — AAA Pattern
+```python
+def test_score_price_mismatch_returns_0_5():
+    # Arrange
+    flight = FlightModel(
+        source="amadeus",
+        carrier_code="AC",
+        flight_number="775",
+        origin_iata="YUL",
+        destination_iata="LAX",
+        departure_at=datetime(2026, 4, 15, 8, 35, tzinfo=UTC),
+        arrival_at=datetime(2026, 4, 15, 11, 42, tzinfo=UTC),
+        total_amount=Decimal("300.00"),
+        base_amount=Decimal("200.00"),
+        tax_amount=Decimal("50.00"),   # 200 + 50 != 300
+        currency="USD"
+    )
+
+    # Act
+    service = FlightScoringService()
+    result = service.score(flight)
+
+    # Assert
+    assert result.quality_metadata.dq_score == 0.5
+    assert result.quality_metadata.is_valid_flight is False
+    assert "PRICE_MISMATCH" in result.quality_metadata.failed_rules
+```
+
+## ISTQB Techniques — Applied
+
+### Boundary Value Analysis
+Test the limits — not just the middle.
+```python
+# carrier_code must be exactly 2 characters
+def test_validate_carrier_code_1_char_returns_error():
+def test_validate_carrier_code_2_chars_passes():
+def test_validate_carrier_code_3_chars_returns_error():
+
+# dq_score boundary at 0.5
+def test_is_valid_flight_true_when_score_0_5():
+def test_is_valid_flight_false_when_score_0_49():
+```
+
+### Equivalence Partitioning
+Divide inputs into valid and invalid classes.
+```python
+# Valid currencies: USD, EUR, CAD, GBP
+# Invalid currencies: XX, USDD, empty string, None
+
+def test_validate_valid_currency_passes():      # valid partition
+def test_validate_unknown_currency_fails():     # invalid partition
+def test_validate_null_currency_fails():        # null partition
+```
+
+### Negative Testing
+Verify the system handles malformed input correctly.
+```python
+def test_validate_null_total_amount_returns_blocking_error():
+def test_validate_arrival_before_departure_returns_critical_error():
+def test_validate_past_departure_date_returns_error():
+def test_validate_empty_flight_list_raises_validation_error():
+```
+
+## BDD Scenarios from SPEC-003 — Mandatory Tests
+
+Every scenario in SPEC-003 must have a corresponding test.
+
+### Scenario 1 — Blocking: Null Price
+```python
+def test_score_null_price_returns_0():
+    # total_amount is None
+    # expected: dq_score == 0.0, is_valid_flight == False
+```
+
+### Scenario 2 — Critical: Price Inconsistency
+```python
+def test_score_price_mismatch_returns_0_5():
+    # base=200, tax=50, total=300 (200+50 != 300)
+    # expected: dq_score == 0.5, PRICE_MISMATCH in failed_rules
+```
+
+### Scenario 3 — Medium: Incomplete Attributes
+```python
+def test_score_null_fare_basis_and_bags_returns_0_6():
+    # fare_basis=None, checked_bags=None
+    # expected: dq_score == 0.6 (1.0 - 0.2 - 0.2)
+```
+
+### Scenario 4 — Perfect Score
+```python
+def test_score_all_fields_valid_returns_1_0():
+    # all fields present and valid
+    # expected: dq_score == 1.0, is_valid_flight == True
+```
+
+### Scenario 5 — Conformity: Invalid IATA
+```python
+def test_score_invalid_iata_returns_0_6():
+    # origin_iata = "YUUL" (4 chars)
+    # expected: dq_score == 0.6 (1.0 - 0.4), ORIGIN_INVALID in failed_rules
+```
+
+## Coverage Requirements
+- Domain layer: 100% coverage — no exceptions
+- Adapters: 80% minimum
+- main.py: excluded from coverage
+
+## conftest.py — Shared Fixtures
+```python
+import pytest
+from decimal import Decimal
+from datetime import datetime, UTC
+from src.domain.models.flight_model import FlightModel
+
+@pytest.fixture
+def valid_amadeus_flight() -> FlightModel:
+    """Valid flight from Amadeus with all fields present."""
+    return FlightModel(
+        source="amadeus",
+        carrier_code="AC",
+        flight_number="775",
+        origin_iata="YUL",
+        destination_iata="LAX",
+        departure_at=datetime(2026, 4, 15, 8, 35, tzinfo=UTC),
+        arrival_at=datetime(2026, 4, 15, 11, 42, tzinfo=UTC),
+        total_amount=Decimal("178.47"),
+        base_amount=Decimal("98.00"),
+        tax_amount=Decimal("80.47"),
+        currency="EUR",
+        cabin_class="economy",
+        fare_basis="GNA4A2BA",
+        fare_brand="BASIC",
+        checked_bags=0,
+        carry_on_bags=0,
+        refund_allowed=None,
+        change_allowed=None
+    )
+
+@pytest.fixture
+def valid_duffel_flight() -> FlightModel:
+    """Valid flight from Duffel with all fields present."""
+    return FlightModel(
+        source="duffel",
+        carrier_code="AA",
+        flight_number="107",
+        origin_iata="YUL",
+        destination_iata="LAX",
+        departure_at=datetime(2026, 4, 15, 10, 50, tzinfo=UTC),
+        arrival_at=datetime(2026, 4, 15, 13, 42, tzinfo=UTC),
+        total_amount=Decimal("222.85"),
+        base_amount=Decimal("188.86"),
+        tax_amount=Decimal("33.99"),
+        currency="USD",
+        cabin_class="economy",
+        fare_basis="Y20LGTN2",
+        fare_brand="Basic Economy",
+        checked_bags=1,
+        carry_on_bags=1,
+        refund_allowed=True,
+        change_allowed=False
+    )
+```
+
+## Forbidden in Tests
+- No `print()` statements
+- No hardcoded credentials or API keys
+- No real API calls in unit tests — use fixtures
+- No `time.sleep()` 
+- No `assert True` or empty tests
