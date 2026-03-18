@@ -371,6 +371,68 @@
           ]
         },
         {
+          "name": "Auth — Get Token",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "const response = pm.response.json();",
+                  "pm.collectionVariables.set(\"amadeus_token\", response.access_token);"
+                ],
+                "type": "text/javascript",
+                "packages": {},
+                "requests": {}
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [],
+            "body": {
+              "mode": "urlencoded",
+              "urlencoded": [
+                {
+                  "key": "grant_type",
+                  "value": "client_credentials",
+                  "type": "text",
+                  "uuid": "a3b8dbea-c5bf-42aa-bdbe-da49d17b10e4"
+                },
+                {
+                  "key": "client_id",
+                  "value": "{{amadeus_api_key}}",
+                  "type": "text",
+                  "uuid": "7e33fb23-44c6-48ec-9ec9-04ed3522bd33"
+                },
+                {
+                  "key": "client_secret",
+                  "value": "{{amadeus_api_secret}}",
+                  "type": "text",
+                  "uuid": "99aadfaa-107a-4757-836d-03aa1b1f43bc"
+                }
+              ]
+            },
+            "url": {
+              "raw": "https://test.api.amadeus.com/v1/security/oauth2/token",
+              "protocol": "https",
+              "host": [
+                "test",
+                "api",
+                "amadeus",
+                "com"
+              ],
+              "path": [
+                "v1",
+                "security",
+                "oauth2",
+                "token"
+              ]
+            },
+            "description": "Authenticates with Amadeus API using OAuth2 client credentials flow.  \nReturns a Bearer token valid for 30 minutes.  \nRequired before any Amadeus API call."
+          },
+          "response": []
+        },
+        {
           "name": "Flight Search — YUL→LAX",
           "event": [
             {
@@ -447,68 +509,6 @@
               ]
             },
             "description": "Searches for flight offers between YUL and LAX using Amadeus GDS.\n\nValidates:\n\n- Price: base_amount, tax_amount, total_amount, currency\n    \n- Schedule: origin, destination, departure, arrival, duration\n    \n- Baggage: checked_bags, carry_on_bags\n    \n- Fare: fare_basis, fare_brand, cabin_class\n    \n- Conditions: refund_allowed, change_allowed\n    \n\nSaves first offer_id to {{amadeus_offer_id}} for downstream requests."
-          },
-          "response": []
-        },
-        {
-          "name": "Auth — Get Token",
-          "event": [
-            {
-              "listen": "test",
-              "script": {
-                "exec": [
-                  "const response = pm.response.json();",
-                  "pm.collectionVariables.set(\"amadeus_token\", response.access_token);"
-                ],
-                "type": "text/javascript",
-                "packages": {},
-                "requests": {}
-              }
-            }
-          ],
-          "request": {
-            "method": "POST",
-            "header": [],
-            "body": {
-              "mode": "urlencoded",
-              "urlencoded": [
-                {
-                  "key": "grant_type",
-                  "value": "client_credentials",
-                  "type": "text",
-                  "uuid": "a3b8dbea-c5bf-42aa-bdbe-da49d17b10e4"
-                },
-                {
-                  "key": "client_id",
-                  "value": "{{amadeus_api_key}}",
-                  "type": "text",
-                  "uuid": "7e33fb23-44c6-48ec-9ec9-04ed3522bd33"
-                },
-                {
-                  "key": "client_secret",
-                  "value": "{{amadeus_api_secret}}",
-                  "type": "text",
-                  "uuid": "99aadfaa-107a-4757-836d-03aa1b1f43bc"
-                }
-              ]
-            },
-            "url": {
-              "raw": "https://test.api.amadeus.com/v1/security/oauth2/token",
-              "protocol": "https",
-              "host": [
-                "test",
-                "api",
-                "amadeus",
-                "com"
-              ],
-              "path": [
-                "v1",
-                "security",
-                "oauth2",
-                "token"
-              ]
-            },
-            "description": "Authenticates with Amadeus API using OAuth2 client credentials flow.  \nReturns a Bearer token valid for 30 minutes.  \nRequired before any Amadeus API call."
           },
           "response": []
         }
@@ -919,6 +919,47 @@
           "response": []
         }
       ]
+    }
+  ],
+  "event": [
+    {
+      "listen": "prerequest",
+      "script": {
+        "type": "text/javascript",
+        "packages": {},
+        "requests": {},
+        "exec": [
+          "// Get Amadeus token synchronously before each request",
+          "pm.sendRequest({",
+          "    url: \"https://test.api.amadeus.com/v1/security/oauth2/token\",",
+          "    method: \"POST\",",
+          "    header: { \"Content-Type\": \"application/x-www-form-urlencoded\" },",
+          "    body: {",
+          "        mode: \"urlencoded\",",
+          "        urlencoded: [",
+          "            { key: \"grant_type\", value: \"client_credentials\" },",
+          "            { key: \"client_id\", value: pm.environment.get(\"amadeus_api_key\") },",
+          "            { key: \"client_secret\", value: pm.environment.get(\"amadeus_api_secret\") }",
+          "        ]",
+          "    }",
+          "}, function (err, response) {",
+          "    if (!err && response.code === 200) {",
+          "        pm.collectionVariables.set(\"amadeus_token\", response.json().access_token);",
+          "    }",
+          "});"
+        ]
+      }
+    },
+    {
+      "listen": "test",
+      "script": {
+        "type": "text/javascript",
+        "packages": {},
+        "requests": {},
+        "exec": [
+          ""
+        ]
+      }
     }
   ],
   "variable": [
