@@ -125,3 +125,24 @@ Implement src/domain/services/flight_scoring_service.py with:
 - Import QualityMetadata and FlightModel from domain models
 - Import ScoringError from domain exceptions
 - Google style docstrings
+
+**amadeus_adapter.py**
+
+Read project.mdc, python.mdc, domain.mdc and SPEC-002-silver-layer.md.
+Implement src/adapters/providers/amadeus_adapter.py with:
+- AmadeusAdapter class implementing FlightProviderPort
+- Constructor receives amadeus_api_key and amadeus_api_secret as strings
+- Private method _get_token() that authenticates with Amadeus OAuth2
+  POST https://test.api.amadeus.com/v1/security/oauth2/token
+- search_flights() method that:
+  1. Calls _get_token() to get Bearer token
+  2. Calls GET https://test.api.amadeus.com/v2/shopping/flight-offers
+     with origin, destination, departure_date, adults, max=5
+  3. Maps raw response to list[FlightModel] using field mapping 
+     defined in SPEC-002 Data Dictionary
+  4. Returns list[FlightModel]
+- Use requests library for HTTP calls
+- Raise AdapterError on any HTTP error or connection failure
+- Save raw response to bronze layer — NO, that is FileRepository's job
+- Google style docstrings
+- No magic numbers — use named constants for URLs and limits
