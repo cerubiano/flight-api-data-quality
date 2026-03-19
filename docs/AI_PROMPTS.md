@@ -57,3 +57,11 @@ Move QualityMetadata outside of FlightModel as a separate
 top-level class in the same file. FlightModel should reference 
 QualityMetadata as an external type, not define it internally.
 Keep all other code exactly as is.
+
+**provider_port.py**
+Read domain.mdc and python.mdc.
+Implement src/domain/ports/provider_port.py with:
+- Abstract base class FlightProviderPort
+- Single abstract method search_flights as defined in domain.mdc
+- Google style docstring
+- No implementation — only the contract
