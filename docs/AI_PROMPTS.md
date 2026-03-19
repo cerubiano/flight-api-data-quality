@@ -109,3 +109,19 @@ Fix this in three steps:
    with flight.failed_rules = failed_rules in flight_validation_service.py
 
 Keep all other code exactly as is.
+
+**flight_scoring_service.py.**
+Read domain.mdc, python.mdc and SPEC-003-gold-layer.md.
+Implement src/domain/services/flight_scoring_service.py with:
+- PENALTY_MAP dictionary mapping each rule_id to its penalty value
+  using the severity matrix defined in SPEC-003
+- FlightScoringService class with a single score() method
+- score() receives a FlightModel with failed_rules populated
+- score() calculates dq_score by subtracting cumulative penalties from 1.0
+- score() floors dq_score at 0.0
+- score() sets is_valid_flight to True if dq_score >= 0.5
+- score() populates quality_metadata on the FlightModel
+- score() returns the FlightModel with quality_metadata populated
+- Import QualityMetadata and FlightModel from domain models
+- Import ScoringError from domain exceptions
+- Google style docstrings
