@@ -65,3 +65,13 @@ Implement src/domain/ports/provider_port.py with:
 - Single abstract method search_flights as defined in domain.mdc
 - Google style docstring
 - No implementation — only the contract
+
+**repository_port.py**
+Read domain.mdc and python.mdc.
+Implement src/domain/ports/repository_port.py with:
+- Abstract base class RepositoryPort
+- Four abstract methods as defined in domain.mdc: 
+  save_bronze, save_silver, save_gold, save_results
+- Google style docstrings on each method
+- Import Path from pathlib
+- No implementation — only the contract
