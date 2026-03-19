@@ -31,7 +31,7 @@ class QualityMetadata(BaseModel):
 class FlightModel(BaseModel):
     """Normalized flight offer model (domain)."""
 
-    model_config = ConfigDict(str_strip_whitespace=True)
+    model_config = ConfigDict(str_strip_whitespace=True, frozen=False)
 
     # Required Fields — Blocking if null
     source: str
@@ -58,6 +58,7 @@ class FlightModel(BaseModel):
 
     # Quality Metadata — populated by FlightScoringService
     quality_metadata: QualityMetadata | None = None
+    failed_rules: list[str] = Field(default_factory=list)
 
     @field_validator("carrier_code")
     @classmethod

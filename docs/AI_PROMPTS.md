@@ -75,3 +75,37 @@ Implement src/domain/ports/repository_port.py with:
 - Google style docstrings on each method
 - Import Path from pathlib
 - No implementation — only the contract
+
+**flight_validation_service.py**
+Read domain.mdc, python.mdc and SPEC-003-gold-layer.md.
+Implement src/domain/services/flight_validation_service.py with:
+- Abstract base class ValidationRule with rule_id, dimension, severity, penalty
+- Abstract method validate() that returns error_code string or None
+- Concrete rule classes for ALL rules defined in domain.mdc Rules Registry
+- FlightValidationService class that applies all rules to a FlightModel
+- VALIDATION_RULES registry as a list of all concrete rule instances
+- Use FlightModel from domain models
+- Use ValidationError from domain exceptions
+- Google style docstrings
+- No magic numbers — use named constants for penalties
+
+### Lesson Learned — Specify data flow between files
+When a service modifies a model, specify explicitly:
+1. What field needs to exist in the model
+2. How the service assigns it
+Cursor does not automatically analyze cross-file dependencies 
+when files are created in separate prompts.
+
+There is a design issue in flight_validation_service.py.
+FlightModel does not have a failed_rules field, so using 
+object.__setattr__ is a hack that violates Pydantic immutability.
+
+Fix this in three steps:
+1. Add failed_rules: list[str] = Field(default_factory=list) 
+   to FlightModel in flight_model.py
+2. Set frozen=False in FlightModel ConfigDict to allow 
+   field assignment after creation
+3. Replace object.__setattr__(flight, "failed_rules", failed_rules)
+   with flight.failed_rules = failed_rules in flight_validation_service.py
+
+Keep all other code exactly as is.
