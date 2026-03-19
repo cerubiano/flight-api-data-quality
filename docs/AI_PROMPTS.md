@@ -33,7 +33,27 @@ Do not write any implementation code.
 11. main.py               ← orquestador
 
 ### Phase 2 — Domain Models
-**promp**
+**exceptions.py**
 Read domain.mdc and python.mdc. 
 Implement src/domain/exceptions.py exactly as defined 
 in domain.mdc — Exceptions section.
+
+**flight_model.py**
+Read domain.mdc and python.mdc.
+Implement src/domain/models/flight_model.py with:
+- FlightModel using Pydantic v2
+- QualityMetadata nested model
+- All fields defined in domain.mdc — Required Fields and Optional Fields sections
+- Field validators for carrier_code, origin_iata, destination_iata
+- No implementation logic — only the model definition
+
+### Lesson Learned — Be explicit about class structure
+Prompt: "nested model" caused Cursor to create QualityMetadata 
+as an inner class. Correct term: "separate top-level class 
+in the same file".
+
+Refactor src/domain/models/flight_model.py:
+Move QualityMetadata outside of FlightModel as a separate 
+top-level class in the same file. FlightModel should reference 
+QualityMetadata as an external type, not define it internally.
+Keep all other code exactly as is.
