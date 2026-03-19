@@ -1,0 +1,20 @@
+# API clients
+requests==2.32.3
+
+# Data processing
+pandas==2.2.3
+pyarrow==18.1.0
+
+# Data validation
+pydantic==2.10.4
+pydantic-settings==2.7.0
+
+# Database
+psycopg2-binary==2.9.10
+
+# Testing
+pytest==8.3.4
+pytest-cov==6.0.0
+
+# Utilities
+python-dotenv==1.0.1
