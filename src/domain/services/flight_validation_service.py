@@ -301,7 +301,13 @@ class DeparturePastRule(ValidationRule):
     penalty = PENALTY_CRITICAL
 
     def validate(self, flight: FlightModel) -> str | None:
-        if flight.departure_at < datetime.now(UTC):
+        if not isinstance(flight.departure_at, datetime):
+            return None
+        departure = flight.departure_at
+        now = datetime.now(UTC)
+        if departure.tzinfo is None:
+            now = datetime.now()
+        if departure < now:
             return self.rule_id
         return None
 
