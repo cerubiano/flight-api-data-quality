@@ -36,7 +36,7 @@ class FlightModel(BaseModel):
     # Required Fields — Blocking if null
     source: str
     carrier_code: str = Field(..., min_length=MIN_CARRIER_CODE_LENGTH, max_length=MAX_CARRIER_CODE_LENGTH)
-    flight_number: str
+    flight_number: str | None = None
     origin_iata: str = Field(..., min_length=MIN_IATA_CODE_LENGTH, max_length=MAX_IATA_CODE_LENGTH)
     destination_iata: str = Field(..., min_length=MIN_IATA_CODE_LENGTH, max_length=MAX_IATA_CODE_LENGTH)
     departure_at: datetime
