@@ -76,6 +76,8 @@ Equivalence Partitioning, and Negative Testing.
 ## Project Structure
 ```
 flight-api-data-quality/
+    config/
+        routes.yaml
     data/
         bronze/     ← Raw JSON from APIs
         silver/     ← Normalized Parquet
@@ -139,16 +141,48 @@ python src/main.py
 
 ## Results
 
-### Key Quality Insights
+### Pipeline Execution Summary
 
-| Source | Avg Score | Valid Flights | Invalid Flights |
+5 routes validated — 396 flight offers processed across Amadeus and Duffel.
+
+| Route | Amadeus | Duffel | Total |
 |---|---|---|---|
-| Duffel (NDC) | 0.63 | 4 | 2 |
-| Amadeus (GDS) | 0.10 | 0 | 5 |
+| YUL → LAX | 5 | 6 | 11 |
+| YUL → YYZ | 5 | 42 | 47 |
+| YYZ → LHR | 5 | 153 | 158 |
+| YVR → CDG | 5 | 120 | 125 |
+| YUL → CUN | 5 | 50 | 55 |
+| **Total** | **25** | **371** | **396** |
 
-**Main finding:** Amadeus returns significantly lower quality data than Duffel 
-for the YUL→LAX route — primarily due to missing refund and change policies, 
-and departure date in the past validation failures.
+### Key Quality Findings
+
+| Source | Avg Score | Valid | Invalid |
+|---|---|---|---|
+| Amadeus (GDS) | ~0.10 | 0 | 25 |
+| Duffel (NDC) | ~0.55 | 206 | 165 |
+| **Total** | **0.49** | **206** | **190** |
+
+**Finding 1 — Amadeus returns no production-ready flights**
+All 25 Amadeus offers scored below 0.5 across all routes. 
+Primary causes: `refund_allowed` and `change_allowed` are 
+structurally null in all Amadeus responses, and departure 
+dates returned by the sandbox API are in the past.
+
+**Finding 2 — Duffel has significantly more inventory**
+Duffel returns up to 153 offers per route (YYZ→LHR) versus 
+Amadeus which is capped at 5. NDC aggregators provide broader 
+access to airline inventory than traditional GDS.
+
+**Finding 3 — Duffel returns null flight_number on some routes**
+Routes YUL→YYZ, YYZ→LHR and YVR→CDG returned offers with 
+null flight_number. The pipeline captures and penalizes 
+these with a blocking score of 0.0.
+
+**Finding 4 — Timezone bug detected and resolved**
+Amadeus returns timezone-aware datetimes. Python's 
+datetime.now() is timezone-naive. This caused a comparison 
+failure in DeparturePastRule — fixed by using 
+datetime.now(timezone.utc).
 
 ### Dashboard
 [Flight API Data Quality Platform — Tableau Public](https://public.tableau.com/app/profile/carlos.rubiano3854/viz/FlightAPIDataQualityPlatform/FlightAPIDataQuality?publish=yes)
