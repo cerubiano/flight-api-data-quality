@@ -1,0 +1,21 @@
+# Flight routes to validate
+# Add or remove routes without touching the pipeline code
+
+routes:
+  - origin: YUL
+    destination: LAX
+    date: "2026-04-15"
+  - origin: YUL
+    destination: YYZ
+    date: "2026-04-15"
+  - origin: YYZ
+    destination: LHR
+    date: "2026-04-15"
+  - origin: YVR
+    destination: CDG
+    date: "2026-04-15"
+  - origin: YUL
+    destination: CUN
+    date: "2026-04-15"
+
+adults: 1
