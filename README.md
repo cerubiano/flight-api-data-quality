@@ -139,7 +139,19 @@ python src/main.py
 
 ## Results
 
-*Dashboard and quality scores — coming soon*
+### Key Quality Insights
+
+| Source | Avg Score | Valid Flights | Invalid Flights |
+|---|---|---|---|
+| Duffel (NDC) | 0.63 | 4 | 2 |
+| Amadeus (GDS) | 0.10 | 0 | 5 |
+
+**Main finding:** Amadeus returns significantly lower quality data than Duffel 
+for the YUL→LAX route — primarily due to missing refund and change policies, 
+and departure date in the past validation failures.
+
+### Dashboard
+[Flight API Data Quality Platform — Tableau Public](https://public.tableau.com/app/profile/carlos.rubiano3854/viz/FlightAPIDataQualityPlatform/FlightAPIDataQuality?publish=yes)
 
 ---
 
